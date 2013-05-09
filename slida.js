@@ -10,6 +10,7 @@ var Emitter = require('events').EventEmitter
  * a certain html structure.
  */
 function Slider(el, container, sections, nofx) {
+  Emitter.call(this)
   this.el = el
   this.container = container
   this.sections = sections
@@ -19,7 +20,7 @@ function Slider(el, container, sections, nofx) {
 }
 
 // Be an event emitter
-Slider.prototype = new Emitter()
+Slider.prototype = Emitter.prototype
 
 Slider.prototype.init = function () {
   this.el
