@@ -234,3 +234,17 @@ Slider.prototype._snap = function (value) {
   })
   return +closest
 }
+
+/*
+ * Uninitialise the slider
+ */
+Slider.prototype.unInit = function () {
+  this.el
+    .height('')
+    .css({ position: '', overflow: '' })
+  this.sections.css({ float: '', display: '', width: '' })
+  this.container.css({ position: '', width: '' })
+  // Todo: refactor so that only function that was bound is removed
+  // (rather than blindly removing ALL touchstart handlers)
+  this.container.off('touchstart')
+}
