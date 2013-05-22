@@ -34,10 +34,14 @@ Slider.prototype.init = function () {
   return this
 }
 
-Slider.prototype.fitCurrent = function () {
-  this.el.transition(
-    { height: this.sections.eq(this.current).outerHeight(true)
-    }, 150)
+Slider.prototype.fitCurrent = function (nofx) {
+  if (nofx) {
+    this.el.height(this.sections.eq(this.current).outerHeight(true))
+  } else {
+    this.el.transition(
+      { height: this.sections.eq(this.current).outerHeight(true)
+      }, 150)
+  }
   return this
 }
 
