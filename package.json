@@ -10,7 +10,8 @@
   "author": "Ben Gourley",
   "license": "BSD",
   "dependencies": {
-    "lodash": "=1.0.1"
+    "lodash": "=1.0.1",
+    "inherits": "~2.0.0"
   },
   "devDependencies": {
     "mocha": "~1.8.2",

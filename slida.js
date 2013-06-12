@@ -2,6 +2,7 @@ module.exports = Slider
 
 var Emitter = require('events').EventEmitter
   , _ = require('lodash')
+  , inherits = require('inherits')
   , transitionFn = $.fn.transition ? 'transition' : 'animate'
 
 /*
@@ -15,42 +16,46 @@ function Slider(el, container, sections, nofx) {
   this.container = container
   this.sections = sections
   this.current = null
-  this.transitionSpeed = 150
+  this.transitionSpeed = nofx ? 0 : 150
   this.isTouch = window.Modernizr.touch
 }
 
 // Be an event emitter
-Slider.prototype = Emitter.prototype
+inherits(Slider, Emitter)
 
 Slider.prototype.init = function () {
   this.el
     .height(this.el.height())
     .css({ position: 'relative', overflow: 'hidden' })
   this.resetWidths()
-  this.sections.css({ float: 'left', display: 'block'})
-  this.container.css({ position: 'absolute'})
+  this.sections.css({ float: 'left', display: 'block' })
+  this.container.css({ position: 'absolute' })
   this.goTo(0)
   if (this.isTouch) this._enableScrollGestures()
   return this
 }
 
 Slider.prototype.fitCurrent = function (nofx) {
-  if (nofx) {
+  if (this.transitionSpeed > 0 && nofx) {
     this.el.height(this.sections.eq(this.current).outerHeight(true))
   } else {
-    this.el.transition(
+    this.el[transitionFn](
       { height: this.sections.eq(this.current).outerHeight(true)
-      }, 150)
+      }, this.transitionSpeed)
   }
   return this
 }
 
 Slider.prototype.resetWidths = function () {
-  this.sections.css(
-    { width: this.el.width() -
-             parseInt(this.sections.css('paddingLeft'), 10) -
-             parseInt(this.sections.css('paddingRight'), 10)
-    })
+  var elWidth = this.el.width()
+    , sectionPaddingLeft = parseInt(this.sections.css('paddingLeft'), 10)
+    , sectionPaddingRight = parseInt(this.sections.css('paddingRight'), 10)
+
+  if (sectionPaddingLeft) elWidth = elWidth + sectionPaddingLeft
+  if (sectionPaddingRight) elWidth = elWidth + sectionPaddingRight
+
+  this.sections.width(elWidth)
+
   this.container.css(
     { width: (function () {
         var w = 0
@@ -66,16 +71,27 @@ Slider.prototype.resetWidths = function () {
 /*
  * Go to slide number `index`
  */
-Slider.prototype.goTo = function (index) {
+Slider.prototype.goTo = function (index, nofx) {
+
   if (index < 0 || index >= this.sections.length) return
   this.emit('change', index)
-  this.container.stop().transition({
-    left: -(this.sections.eq(index).position().left)
-  }, this.transitionSpeed * Math.abs(this.current - index), _.bind(function () {
+
+  if (this.transitionSpeed > 0 && !nofx) {
+
+    this.container.stop()[transitionFn]({
+      left: -(this.sections.eq(index).position().left)
+    }, this.transitionSpeed * Math.abs(this.current - index), _.bind(function () {
+      this.fitCurrent()
+    }, this))
+
+  } else {
+    this.container.stop().css({ left: -(this.sections.eq(index).position().left) })
     this.fitCurrent()
-  }, this))
+  }
+
   this.current = index
   return this
+
 }
 
 /*
@@ -185,20 +201,20 @@ Slider.prototype._enableScrollGestures = function () {
     $(document).off('touchend', endScroll)
 
     if (endPoint > 0) {
-      this.container.transition({ left: max }, 300, _.bind(function () {
+      this.container[transitionFn]({ left: max }, 300, _.bind(function () {
         this.fitCurrent()
       }, this))
       this.emit('change', 0)
       this.current = 0
     } else if (endPoint < min) {
-      this.container.transition({ left: min }, 300, _.bind(function () {
+      this.container[transitionFn]({ left: min }, 300, _.bind(function () {
         this.fitCurrent()
       }, this))
       this.emit('change', this.sections.length - 1)
       this.current = this.sections.length - 1
     } else {
       closest = this._snap(endPoint)
-      this.container.transition({ left: -closest }, 200, _.bind(function () {
+      this.container[transitionFn]({ left: -closest }, 200, _.bind(function () {
         this.fitCurrent()
       }, this))
       var current = _.indexOf(this._getSnapPoints(), closest)
