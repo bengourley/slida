@@ -6,6 +6,13 @@ var Slider = require('..')
 
 window.Modernizr = { touch: false }
 
+function createTouchEvent(type, x, y) {
+  return $.Event({
+      touches: 1
+    , targetTouches: [ {clientX: x, clientY: y} ]
+    , type: type
+    });
+}
 describe('slida', function () {
 
   beforeEach(function () {
@@ -84,12 +91,47 @@ describe('slida', function () {
     it('should do no work on invalid input', function () {
       var slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
       slider.init()
-      slider.on('change', function (i) {
+      slider.on('change', function () {
         assert(false)
       })
       slider.goTo(10, true)
       slider.goTo(-21, true)
       slider.goTo(3, true)
+    })
+
+    it('should not ignore move events by default', function (done) {
+      var slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
+        , touchGesture = createTouchEvent('touchstart', 1, 1)
+        , moveGesture = createTouchEvent('touchmove', 5, 1)
+
+      slider.isTouch = true
+      slider.init()
+
+      slider.on('swipeStart', function() {
+        done()
+      })
+      $('.js-items').trigger(touchGesture)
+      $('.js-items').trigger(moveGesture)
+    })
+
+    it('should ignore move events when disableSliding is set to true', function () {
+      var touchGesture = createTouchEvent('touchstart', 1, 1)
+        , moveGesture = createTouchEvent('touchmove', 5, 1)
+        , slider = new Slider(
+          $('.js-slider-widget')
+          , $('.js-items')
+          , $('.js-items').children()
+          , { nofx: true, disableSliding: true }
+        )
+
+      slider.isTouch = true
+      slider.init()
+
+      slider.on('swipeStart', function() {
+        assert(false)
+      })
+      $('.js-items').trigger(touchGesture)
+      $('.js-items').trigger(moveGesture)
     })
 
   })

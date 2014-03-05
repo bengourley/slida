@@ -4,19 +4,27 @@ var Emitter = require('events').EventEmitter
   , _ = require('lodash')
   , inherits = require('inherits')
   , transitionFn = $.fn.transition ? 'transition' : 'animate'
+  , defaults = { transitionSpeed: 150, disableSliding: false }
 
 /*
  * Make a slider out of
  * the given element. Requires
  * a certain html structure.
  */
-function Slider(el, container, sections, nofx) {
+function Slider(el, container, sections, options) {
   Emitter.call(this)
   this.el = el
   this.container = container
   this.sections = sections
   this.current = null
-  this.transitionSpeed = nofx ? 0 : 150
+  this.options = { }
+
+  if (typeof options === 'object') {
+    this.options = _.extend( { }, defaults, options)
+  } else {
+    this.options.transitionSpeed = options ? 0 : 150
+  }
+
   this.isTouch = window.Modernizr.touch
 }
 
@@ -31,17 +39,17 @@ Slider.prototype.init = function () {
   this.sections.css({ float: 'left', display: 'block' })
   this.container.css({ position: 'absolute' })
   this.goTo(0)
-  if (this.isTouch) this._enableScrollGestures()
+  if (this.isTouch && !this.options.disableSliding) this._enableScrollGestures()
   return this
 }
 
 Slider.prototype.fitCurrent = function (nofx) {
-  if (this.transitionSpeed > 0 && nofx) {
+  if (this.options.transitionSpeed > 0 && nofx) {
     this.el.height(this.sections.eq(this.current).outerHeight(true))
   } else {
     this.el[transitionFn](
       { height: this.sections.eq(this.current).outerHeight(true)
-      }, this.transitionSpeed)
+      }, this.options.transitionSpeed)
   }
   return this
 }
@@ -76,11 +84,11 @@ Slider.prototype.goTo = function (index, nofx) {
   if (index < 0 || index >= this.sections.length) return
   this.emit('change', index)
 
-  if (this.transitionSpeed > 0 && !nofx) {
+  if (this.options.transitionSpeed > 0 && !nofx) {
 
     this.container.stop()[transitionFn]({
       left: -(this.sections.eq(index).position().left)
-    }, this.transitionSpeed * Math.abs(this.current - index), _.bind(function () {
+    }, this.options.transitionSpeed * Math.abs(this.current - index), _.bind(function () {
       this.fitCurrent()
     }, this))
 
@@ -192,7 +200,7 @@ Slider.prototype._enableScrollGestures = function () {
    * Detaches event handlers and snap to the
    * nearest snapPoint or edge.
    */
-  var endScroll = _.bind(function (e) {
+  var endScroll = _.bind(function () {
 
     var endPoint = this.container.position().left
       , closest
