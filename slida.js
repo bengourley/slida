@@ -4,7 +4,13 @@ var Emitter = require('events').EventEmitter
   , _ = require('lodash')
   , inherits = require('inherits')
   , transitionFn = $.fn.transition ? 'transition' : 'animate'
-  , defaults = { transitionSpeed: 150, disableSliding: false }
+  , defaults =
+    { transitionSpeed: 150
+    , disableSwiping: false
+    , sensitivity: 2
+    , timeProvider: function () {
+      return Date.now()
+    }}
 
 /*
  * Make a slider out of
@@ -17,10 +23,10 @@ function Slider(el, container, sections, options) {
   this.container = container
   this.sections = sections
   this.current = null
-  this.options = { }
+  this.options = _.extend({ }, defaults)
 
   if (typeof options === 'object') {
-    this.options = _.extend( { }, defaults, options)
+    this.options = _.extend(this.options, options)
   } else {
     this.options.transitionSpeed = options ? 0 : 150
   }
@@ -31,15 +37,18 @@ function Slider(el, container, sections, options) {
 // Be an event emitter
 inherits(Slider, Emitter)
 
-Slider.prototype.init = function () {
+Slider.prototype.init = function (current) {
+  if (!current) current = 0
   this.el
     .height(this.el.height())
     .css({ position: 'relative', overflow: 'hidden' })
   this.resetWidths()
   this.sections.css({ float: 'left', display: 'block' })
   this.container.css({ position: 'absolute' })
-  this.goTo(0)
-  if (this.isTouch && !this.options.disableSliding) this._enableScrollGestures()
+  this.goTo(current)
+  if (this.isTouch && !this.options.disableSwiping) {
+    this.touchHandlers = this._enableScrollGestures()
+  }
   return this
 }
 
@@ -126,21 +135,25 @@ Slider.prototype._enableScrollGestures = function () {
     , inputOrigin
     , max = 0
     , min = -(this.container.width() - this.el.width())
+    , allowMove = false
+    , mostRecentTouches
 
   /*
    * Bound to the touchstart event.
    * Binds a touchmove listener on the document.
    */
   var startScroll = _.bind(function (e) {
-
     // Don't react to multi-touch
     if (this.isTouch && e.originalEvent.touches.length > 1) return
 
-    $(document).on('touchmove', detectGesture)
+    $(this.container).on('touchmove', handleTouchmove)
+    $(this.container).on('touchend touchcancel', handleTouchend)
 
     inputOrigin = this._getCoords(e)
     startPosition = this.container.position()
 
+    clearMostRecentTouches()
+    updateMostRecentTouches(inputOrigin)
   }, this)
 
   /*
@@ -149,27 +162,48 @@ Slider.prototype._enableScrollGestures = function () {
    * of the desired type, and handles
    * accordingly.
    */
-  var detectGesture = _.bind(function (e) {
-
+  var handleTouchmove = _.bind(function (e) {
     var inputNow = this._getCoords(e)
+      , xDelta = Math.abs(inputNow.x - inputOrigin.x)
+      , yDelta = Math.abs(inputNow.y - inputOrigin.y)
 
-    if (Math.abs(inputNow.x - inputOrigin.x) === 0 &&
-        Math.abs(inputOrigin.y - inputOrigin.y) === 0) {
-      // No move since original event
-      return
-    } else if (Math.abs(inputNow.x - inputOrigin.x) >
-               Math.abs(inputNow.y - inputOrigin.y)) {
+    updateMostRecentTouches(inputNow)
+
+    if (allowMove) {
+      updateScroll(e)
+    } else if (xDelta + yDelta === 0) {
+      // no move since original event
+    } else if (xDelta > yDelta) {
+      // A horizontal movement, so start sliding
+
       this.emit('swipeStart')
-      // A horizontal movement, so add the touchmove handler
-      $(document).on('touchmove', updateScroll)
-      $(document).on('touchend', endScroll)
-      $(document).off('touchmove', detectGesture)
+      allowMove = true
+      updateScroll(e)
     } else {
-      // A vertical movement, so let the
-      // device scroll the document
-      $(document).off('touchmove', detectGesture)
+      // A vertical movement, so let the device scroll the document
+      $(this.container).off('touchmove', handleTouchmove)
+      $(this.container).off('touchend touchcancel', handleTouchend)
+      return true
     }
 
+    return false
+
+  }, this)
+
+  var updateMostRecentTouches = _.bind(function (currentTouch) {
+    var now = this.options.timeProvider()
+    mostRecentTouches.push({ touch: currentTouch, time: now })
+
+    // if we have at least five recent touches to analyze,
+    // ignore anything older than 200 milliseconds
+    while (mostRecentTouches.length >= 5
+      && now - mostRecentTouches[0].time > 200) {
+      mostRecentTouches.shift()
+    }
+  }, this)
+
+  var clearMostRecentTouches = _.bind(function () {
+    mostRecentTouches = []
   }, this)
 
   /*
@@ -178,8 +212,6 @@ Slider.prototype._enableScrollGestures = function () {
    * element based on the user input.
    */
   var updateScroll = _.bind(function (e) {
-
-    e.preventDefault()
 
     var pos = this._getCoords(e)
       , newpos = startPosition.left + pos.x - inputOrigin.x
@@ -200,13 +232,16 @@ Slider.prototype._enableScrollGestures = function () {
    * Detaches event handlers and snap to the
    * nearest snapPoint or edge.
    */
-  var endScroll = _.bind(function () {
+  var handleTouchend = _.bind(function () {
 
     var endPoint = this.container.position().left
+      , velocity = calculateVelocity()
       , closest
 
-    $(document).off('touchmove', updateScroll)
-    $(document).off('touchend', endScroll)
+    allowMove = false
+
+    $(this.container).off('touchmove', handleTouchmove)
+    $(this.container).off('touchend', handleTouchend)
 
     if (endPoint > 0) {
       this.container[transitionFn]({ left: max }, 300, _.bind(function () {
@@ -222,18 +257,54 @@ Slider.prototype._enableScrollGestures = function () {
       this.current = this.sections.length - 1
     } else {
       closest = this._snap(endPoint)
+
+      var snapPoints = this._getSnapPoints()
+        , current = _.indexOf(snapPoints, closest)
+
+      // see if finger movement was fast enough to trigger transition
+      if (current === this.current && (1 / Math.abs(velocity)) < this.options.sensitivity) {
+        if (current < snapPoints.length - 1 && velocity > 0) {
+          closest = snapPoints[current + 1]
+        } else if (current > 0 && velocity < 0) {
+          closest = snapPoints[current - 1]
+        }
+      }
       this.container[transitionFn]({ left: -closest }, 200, _.bind(function () {
         this.fitCurrent()
       }, this))
-      var current = _.indexOf(this._getSnapPoints(), closest)
+
+      current = _.indexOf(snapPoints, closest)
       this.emit('change', current)
       this.current = current
+
     }
 
+    return false
+  }, this)
+
+  var calculateVelocity = _.bind(function () {
+    if (!mostRecentTouches.length > 0) {
+      return 0
+    }
+    var first
+      , last
+      , distance
+      , time
+
+    first = mostRecentTouches.shift()
+    last = mostRecentTouches.pop()
+
+    distance = -(last.touch.x - first.touch.x)
+    time = last.time - first.time
+
+    return distance / time
   }, this)
 
   this.container.on('touchstart', startScroll)
-  return this
+
+  return { touchstart: startScroll
+         , touchmove: handleTouchmove
+         , touchend: handleTouchend }
 }
 
 /*
@@ -272,7 +343,10 @@ Slider.prototype.unInit = function () {
     .css({ position: '', overflow: '' })
   this.sections.css({ float: '', display: '', width: '' })
   this.container.css({ position: '', width: '' })
-  // Todo: refactor so that only function that was bound is removed
-  // (rather than blindly removing ALL touchstart handlers)
-  this.container.off('touchstart')
+
+  if (this.touchHandlers) {
+    this.container.off('touchstart', this.touchHandlers.touchstart)
+    this.container.off('touchmove', this.touchHandlers.touchmove)
+    this.container.off('touchend touchcancel', this.touchHandlers.touchend)
+  }
 }
