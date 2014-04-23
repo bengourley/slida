@@ -83,13 +83,14 @@ describe('slida', function () {
 
   describe('goTo()', function () {
 
-    it.skip('should show the ith page and hide the others', function (done) {
+    it('should show the ith page and hide the others', function (done) {
       slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
       slider.init()
       slider.on('change', function (i) {
         setTimeout(function () {
           assert.equal(i, 2)
-          assert.equal(slider.container.css('left'), '400px')
+          // This line is skipped because there is no CSS in these tests
+          // assert.equal(slider.container.css('left'), '400px')
           done()
         }, 0)
       })
