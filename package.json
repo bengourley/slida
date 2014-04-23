@@ -1,6 +1,6 @@
 {
   "name": "slida",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "A slider module for the browser",
   "main": "slida.js",
   "scripts": {
