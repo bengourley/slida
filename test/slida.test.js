@@ -3,7 +3,6 @@ require('./test-env')
 var Slider = require('..')
   , assert = require('assert')
   , EventEmitter = require('events').EventEmitter
-  , slider
 
 window.Modernizr = { touch: false }
 
@@ -38,12 +37,6 @@ describe('slida', function () {
       ].join('\n'))
   })
 
-  afterEach(function () {
-    if (slider) {
-      slider.unInit()
-    }
-  })
-
   describe('Slider()', function () {
 
     it('should be a function', function () {
@@ -51,7 +44,7 @@ describe('slida', function () {
     })
 
     it('should inherit from event emitter', function () {
-      slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
+      var slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
       assert(slider instanceof Slider)
       assert(slider instanceof EventEmitter)
       assert.equal(typeof slider.on, 'function')
@@ -65,7 +58,7 @@ describe('slida', function () {
   describe('init()', function () {
 
     it('should emit a change event', function (done) {
-      slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
+      var slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
       slider.on('change', function (i) {
         assert.equal(i, 0)
         done()
@@ -74,7 +67,7 @@ describe('slida', function () {
     })
 
     it('should make the container the combined width of the items', function () {
-      slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
+      var slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
       slider.init()
       assert.equal(slider.container.width(), 600)
     })
@@ -84,7 +77,7 @@ describe('slida', function () {
   describe('goTo()', function () {
 
     it('should show the ith page and hide the others', function (done) {
-      slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
+      var slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
       slider.init()
       slider.on('change', function (i) {
         setTimeout(function () {
@@ -98,7 +91,7 @@ describe('slida', function () {
     })
 
     it('should do no work on invalid input', function () {
-      slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
+      var slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
       slider.init()
       slider.on('change', function () {
         assert(false)
@@ -109,7 +102,7 @@ describe('slida', function () {
     })
 
     it('should allow swiping by default', function (done) {
-      slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
+      var slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
 
       slider.isTouch = true
       slider.init()
@@ -122,7 +115,7 @@ describe('slida', function () {
     })
 
     it('should not swipe if movement is more vertical than horizontal', function () {
-      slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
+      var slider = new Slider($('.js-slider-widget'), $('.js-items'), $('.js-items').children(), true)
 
       slider.isTouch = true
       slider.init()
@@ -135,7 +128,7 @@ describe('slida', function () {
     })
 
     it('should not start swiping when disableSwiping is set to true', function () {
-      slider = new Slider(
+      var slider = new Slider(
           $('.js-slider-widget')
           , $('.js-items')
           , $('.js-items').children()
@@ -154,18 +147,16 @@ describe('slida', function () {
 
     it.skip('fast finger movement should trigger transition even when it’s short', function (done) {
       var i = 0
-
-      slider = new Slider(
-          $('.js-slider-widget')
-        , $('.js-items')
-        , $('.js-items').children()
-        , { nofx: true
-          , sensitivity: 2
-          , timeProvider: function () {
-            return i++ * 50 // increment by 50 milliseconds
-          }
-        }
-      )
+        , slider = new Slider(
+            $('.js-slider-widget')
+          , $('.js-items')
+          , $('.js-items').children()
+          , { nofx: true
+            , sensitivity: 2
+            , timeProvider: function () {
+                return i++ * 50 // increment by 50 milliseconds
+              }
+            })
 
       slider.isTouch = true
       slider.init()
